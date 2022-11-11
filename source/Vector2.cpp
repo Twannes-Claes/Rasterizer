@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <cmath>
+#include <algorithm>
 
 namespace dae {
 	const Vector2 Vector2::UnitX = Vector2{ 1, 0 };
@@ -47,6 +48,33 @@ namespace dae {
 	float Vector2::Cross(const Vector2& v1, const Vector2& v2)
 	{
 		return v1.x * v2.y - v1.y * v2.x;
+	}
+
+	void Vector2::Clamp(float minX, float minY, float maxX, float maxY)
+	{
+		x = std::clamp(x, minX, maxX);
+		y = std::clamp(y, minY, maxY);
+	}
+	void Vector2::Clamp(float maxX, float maxY)
+	{
+		x = std::clamp(x, 0.f, maxX);
+		y = std::clamp(y, 0.f, maxY);
+	}
+
+	Vector2 Vector2::Min(const Vector2& v1, const Vector2& v2)
+	{
+		return{
+			std::min(v1.x, v2.x),
+			std::min(v1.y, v2.y),
+		};
+	}
+
+	Vector2 Vector2::Max(const Vector2& v1, const Vector2& v2)
+	{
+		return{
+			std::max(v1.x, v2.x),
+			std::max(v1.y, v2.y),
+		};
 	}
 
 #pragma region Operator Overloads

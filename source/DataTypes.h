@@ -24,6 +24,12 @@ namespace dae
 		//Vector3 viewDirection{};
 	};
 
+	struct AABB
+	{
+		Vector2 minAABB{};
+		Vector2 maxAABB{};
+	};
+
 	enum class PrimitiveTopology
 	{
 		TriangeList,
