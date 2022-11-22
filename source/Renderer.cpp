@@ -18,7 +18,9 @@ using namespace dae;
 
 Renderer::Renderer(SDL_Window* pWindow) :
 	m_pWindow(pWindow),
-	m_pTexture { Texture::LoadFromFile("Resources/uv_grid_2.png")}
+	//m_pTexture { Texture::LoadFromFile("Resources/uv_grid_2.png")}
+	m_pTexture { Texture::LoadFromFile("Resources/tuktuk.png")}
+	//m_pTexture { Texture::LoadFromFile("Resources/vehicle_diffuse.png")}
 {
 	//Initialize
 	SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
@@ -30,12 +32,20 @@ Renderer::Renderer(SDL_Window* pWindow) :
 
 	m_pDepthBufferPixels = new float[m_Width * m_Height];
 
-	//Initialize Camera
-	m_Camera.Initialize(60.f, { .0f,.0f,-10.f });
-
 	m_AspectRatio = static_cast<float>(m_Width) / m_Height;
+	//Initialize Camera
+	m_Camera.Initialize(m_AspectRatio,60.f, { .0f,.0f,-10.f });
 
 	m_NrOfPixels = m_Width * m_Height;
+
+	if (m_IsCamLocked) SDL_SetRelativeMouseMode(SDL_TRUE);
+	else SDL_SetRelativeMouseMode(SDL_FALSE);
+
+	Utils::ParseOBJ("Resources/tuktuk.obj", m_Meshes_World[0].vertices, m_Meshes_World[0].indices);
+	//Utils::ParseOBJ("Resources/vehicle.obj", m_Meshes_World[1].vertices, m_Meshes_World[1].indices);
+
+
+	m_Meshes_World[0].worldMatrix = Matrix::CreateScale(Vector3{ 0.5f, 0.5f, 0.5f });
 
 }
 
@@ -49,6 +59,8 @@ Renderer::~Renderer()
 void Renderer::Update(Timer* pTimer)
 {
 	m_Camera.Update(pTimer);
+
+	m_Meshes_World[0].RotateY(m_RotateSpeed * pTimer->GetElapsed());
 }
 
 void Renderer::Render()
@@ -61,7 +73,7 @@ void Renderer::Render()
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-	for (const Mesh& mesh : m_Meshesworld)
+	for (Mesh& mesh : m_Meshes_World)
 	{
 		VertexTransformationFunction(mesh);
 
@@ -72,7 +84,7 @@ void Renderer::Render()
 
 				for (size_t vertexIndex{}; vertexIndex < mesh.indices.size(); vertexIndex += 3)
 				{
-					DrawTriangle(vertexIndex, mesh, false);
+					RenderTriangle(vertexIndex, mesh, false);
 				}
 
 			}
@@ -82,13 +94,12 @@ void Renderer::Render()
 			{
 				for (size_t vertexIndex{}; vertexIndex < mesh.indices.size() - 2; ++vertexIndex)
 				{
-					DrawTriangle(vertexIndex, mesh, vertexIndex % 2);
+					RenderTriangle(vertexIndex, mesh, vertexIndex % 2);
 				}
 			}
 			break;
 
 		}
-
 	}
 
 	//@END 
@@ -99,41 +110,58 @@ void Renderer::Render()
 
 }
 
-void Renderer::VertexTransformationFunction(const Mesh& mesh)
+void Renderer::VertexTransformationFunction(Mesh& mesh)
 {
 
 	m_Vertices_ScreenSpace.clear();
 
-	m_Vertices_NDC.clear();
+	mesh.vertices_out.clear();
 
-	for (Vertex vertex : mesh.vertices)
+	const Matrix worldViewProjectionMatrix{ mesh.worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
+
+	for (const Vertex& vertex : mesh.vertices)
 	{
-		vertex.position = m_Camera.invViewMatrix.TransformPoint(vertex.position);
 
-		vertex.position.x = vertex.position.x / (m_AspectRatio * m_Camera.fov) / vertex.position.z;
-		vertex.position.y = vertex.position.y / m_Camera.fov / vertex.position.z;
+		Vertex_Out temp
+		{
+			Vector4 { worldViewProjectionMatrix.TransformPoint({vertex.position, 1.f})},
+			vertex.color,
+			vertex.uv,
+			vertex.normal,
+			vertex.tangent
+		};
 
-		m_Vertices_NDC.emplace_back(vertex);
+		temp.position.x /= temp.position.w;
+		temp.position.y /= temp.position.w;
+		temp.position.z /= temp.position.w;
+
+		mesh.vertices_out.emplace_back(temp);
 	}
 
-	for (const Vertex& vertice : m_Vertices_NDC)
+	for (const Vertex_Out& vertice : mesh.vertices_out)
 	{
 		Vector2 v{
 		((vertice.position.x + 1) / 2) * m_Width,
 		((1 - vertice.position.y) / 2) * m_Height};
 
-		m_Vertices_ScreenSpace.push_back(v);
+		m_Vertices_ScreenSpace.emplace_back(v);
 	}
 
 }
 
-void Renderer::DrawTriangle(const size_t Index, const Mesh& mesh, const bool swapVertices)
+void Renderer::RenderTriangle(const size_t index, const Mesh& mesh, const bool swapVertices)
 {
-	const size_t index0{ mesh.indices[Index]};
-	const size_t index1{ mesh.indices[Index + 1 + swapVertices] };
-	const size_t index2{ mesh.indices[Index + 1 + !swapVertices]  };
+	const size_t index0{ mesh.indices[index]};
+	const size_t index1{ mesh.indices[index + 1 + swapVertices] };
+	const size_t index2{ mesh.indices[index + 1 + !swapVertices]  };
 
 	if (index0 == index1 || index1 == index2 || index0 == index2) return;
+
+	const Vertex_Out vertex_OutV0{ mesh.vertices_out[index0] };
+	const Vertex_Out vertex_OutV1{ mesh.vertices_out[index1] };
+	const Vertex_Out vertex_OutV2{ mesh.vertices_out[index2] };
+
+	if (IsOutOfFrustrum(vertex_OutV0) || IsOutOfFrustrum(vertex_OutV1) || IsOutOfFrustrum(vertex_OutV2)) return;
 
 	const Vector2 v0{ m_Vertices_ScreenSpace[index0] };
 	const Vector2 v1{ m_Vertices_ScreenSpace[index1] };
@@ -185,26 +213,45 @@ void Renderer::DrawTriangle(const size_t Index, const Mesh& mesh, const bool swa
 			const float weightV1 = edge2 * invTriangleArea;
 			const float weightV2 = edge0 * invTriangleArea;
 
-			const float depthV0{ m_Vertices_NDC[index0].position.z };
-			const float depthV1{ m_Vertices_NDC[index1].position.z };
-			const float depthV2{ m_Vertices_NDC[index2].position.z };
 
-			const float interpolateDepth{ 1 / ( weightV0 / depthV0 + weightV1 / depthV1 + weightV2 / depthV2 ) };
+			float depthV0{ vertex_OutV0.position.z };
+			float depthV1{ vertex_OutV1.position.z };
+			float depthV2{ vertex_OutV2.position.z };
+
+			const float interpolateDepthZ{ 1 / ( weightV0 / depthV0 + weightV1 / depthV1 + weightV2 / depthV2 ) };
 
 			const int pixelIndex{ px + py * m_Width };
 
-			if (m_pDepthBufferPixels[pixelIndex] < interpolateDepth) continue;
+			if (m_pDepthBufferPixels[pixelIndex] < interpolateDepthZ /*|| interpolateDepthZ < 0 || interpolateDepthZ > 1*/) continue;
 
-			m_pDepthBufferPixels[pixelIndex] = interpolateDepth;
+			m_pDepthBufferPixels[pixelIndex] = interpolateDepthZ;
 
-			const Vector2 uvPixel 
-			{	
-				(CalcUVComponent(weightV0, depthV0, index0, mesh) 
-				+ CalcUVComponent(weightV1, depthV1, index1, mesh) 
-				+ CalcUVComponent(weightV2, depthV2, index2, mesh)) * interpolateDepth
-			};
+			ColorRGB finalColor{};
 
-			ColorRGB finalColor{ m_pTexture->Sample(uvPixel) };
+			if (m_IsColoringTexture)
+			{
+				depthV0 = vertex_OutV0.position.w;
+				depthV1 = vertex_OutV1.position.w;
+				depthV2 = vertex_OutV2.position.w;
+
+				const float interpolateDepthW{ 1 / (weightV0 / depthV0 + weightV1 / depthV1 + weightV2 / depthV2) };
+
+				const Vector2 uvPixel
+				{
+					(CalcUVComponent(weightV0, depthV0, index0, mesh)
+					+ CalcUVComponent(weightV1, depthV1, index1, mesh)
+					+ CalcUVComponent(weightV2, depthV2, index2, mesh)) * interpolateDepthW
+				};
+
+				finalColor = m_pTexture->Sample(uvPixel);
+			}
+			else
+			{
+				const float colorDepth{ Remap(interpolateDepthZ, 0.985f, 1.0f) };
+
+				finalColor = { colorDepth, colorDepth, colorDepth };
+			}
+
 
 			//Update Color in Buffer
 			finalColor.MaxToOne();
@@ -215,6 +262,11 @@ void Renderer::DrawTriangle(const size_t Index, const Mesh& mesh, const bool swa
 				static_cast<uint8_t>(finalColor.b * 255));
 		}
 	}
+}
+
+bool dae::Renderer::IsOutOfFrustrum(const Vertex_Out& v) const
+{
+	return (v.position.x < -1 || v.position.x > 1) || (v.position.y < -1 || v.position.y > 1) || (v.position.z < 0 || v.position.z > 1);
 }
 
 bool Renderer::SaveBufferToImage() const

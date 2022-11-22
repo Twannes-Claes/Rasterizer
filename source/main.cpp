@@ -40,7 +40,7 @@ int main(int argc, char* args[])
 	if (!pWindow)
 		return 1;
 
-	SDL_SetRelativeMouseMode(SDL_TRUE);
+	//SDL_SetRelativeMouseMode(SDL_TRUE);
 
 	//Initialize "framework"
 	const auto pTimer = new Timer();
@@ -63,22 +63,15 @@ int main(int argc, char* args[])
 				isLooping = false;
 				break;
 			case SDL_KEYUP:
-				if (e.key.keysym.scancode == SDL_SCANCODE_X)
-					takeScreenshot = true;
-				else if (e.key.keysym.scancode == SDL_SCANCODE_LCTRL)
+				if (e.key.keysym.scancode == SDL_SCANCODE_X) takeScreenshot = true;
+					
+				if (e.key.keysym.scancode == SDL_SCANCODE_LCTRL)
 				{
-					pRenderer->SetCameraLock(!pRenderer->getCameraLock());
-
-					if (!pRenderer->getCameraLock())
-					{
-						SDL_SetRelativeMouseMode(SDL_FALSE);
-					}
-					else
-					{
-						SDL_SetRelativeMouseMode(SDL_TRUE);
-
-					}
+					pRenderer->ToggleCameraLock();
 				}
+				
+				if (e.key.keysym.scancode == SDL_SCANCODE_F4) pRenderer->ToggleColorState();
+
 				break;
 			}
 		}

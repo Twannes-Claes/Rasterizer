@@ -31,28 +31,35 @@ namespace dae
 		float totalPitch{};
 		float totalYaw{};
 
+		float aspectRatio{};
+
+		const float nearPlane{ 0.1f };
+		const float farPlane{ 100.f };
+
 		const float minPitch{ -89.99f * TO_RADIANS };
 		const float maxPitch{ 89.99f * TO_RADIANS };
 
 		int speed{ 10 };
+		float speedRot{ 10 * TO_RADIANS };
 
 		Matrix invViewMatrix{};
 		Matrix viewMatrix{};
+		Matrix projectionMatrix{};
 
 		const int sprintSpeedMultiplier{ 3 };
 
-		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
+		void Initialize(float aspecRatio, float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
 		{
 			fovAngle = _fovAngle;
 			fov = tanf((fovAngle * TO_RADIANS) / 2.f);
+
+			aspectRatio = aspecRatio;
 
 			origin = _origin;
 		}
 
 		void CalculateViewMatrix()
 		{
-			//TODO W1
-			//ONB => invViewMatrix
 			
 			right = Vector3::Cross(Vector3::UnitY, forward).Normalized();
 
@@ -68,17 +75,15 @@ namespace dae
 
 			viewMatrix = invViewMatrix.Inverse();
 
-			//Inverse(ONB) => ViewMatrix
-
 			//ViewMatrix => Matrix::CreateLookAtLH(...) [not implemented yet]
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixlookatlh
 		}
 
 		void CalculateProjectionMatrix()
 		{
-			//TODO W2
 
-			//ProjectionMatrix => Matrix::CreatePerspectiveFovLH(...) [not implemented yet]
+			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearPlane, farPlane);
+
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixperspectivefovlh
 		}
 
@@ -86,18 +91,15 @@ namespace dae
 		{
 			const float deltaTime = pTimer->GetElapsed();
 
-			//Camera Update Logic
-			//...
 			const uint8_t* pKeyboardState = SDL_GetKeyboardState(nullptr);
 
-			//Mouse Input
 			int mouseX{}, mouseY{};
 			const uint32_t mouseState = SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
 			float moveSpeed{ speed * deltaTime };
-			float rotSpeed{ (speed * 3.f * TO_RADIANS) * deltaTime };
+			float rotSpeed{ speedRot * deltaTime };
 
-			moveSpeed = (pKeyboardState[SDL_SCANCODE_LSHIFT] * (sprintSpeedMultiplier)*moveSpeed) + moveSpeed;
+			moveSpeed = (pKeyboardState[SDL_SCANCODE_LSHIFT] * (sprintSpeedMultiplier) * moveSpeed) + moveSpeed;
 
 			origin += (pKeyboardState[SDL_SCANCODE_W] || pKeyboardState[SDL_SCANCODE_UP]) * forward * moveSpeed;
 			origin -= (pKeyboardState[SDL_SCANCODE_S] || pKeyboardState[SDL_SCANCODE_DOWN]) * forward * moveSpeed;
@@ -118,6 +120,7 @@ namespace dae
 
 			totalPitch -= rmb * rotSpeed * mouseY;
 			totalPitch = std::clamp(totalPitch, minPitch, maxPitch);
+
 			totalYaw += lmb * rotSpeed * mouseX;
 			totalYaw += rmb * rotSpeed * mouseX;
 

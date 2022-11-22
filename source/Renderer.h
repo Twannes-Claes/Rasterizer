@@ -33,10 +33,16 @@ namespace dae
 
 		bool SaveBufferToImage() const;
 
-		bool getCameraLock() const { return m_IsCamLocked; }
+		void ToggleCameraLock()
+		{ 
+			m_IsCamLocked = !m_IsCamLocked;
 
-		void SetCameraLock(bool expression) { m_IsCamLocked = expression; }
+			if(m_IsCamLocked) SDL_SetRelativeMouseMode(SDL_TRUE);
+			else SDL_SetRelativeMouseMode(SDL_FALSE);
+		}
 
+		void ToggleColorState() { m_IsColoringTexture = !m_IsColoringTexture; }
+		
 	private:
 		SDL_Window* m_pWindow{};
 
@@ -59,24 +65,30 @@ namespace dae
 
 		bool m_IsCamLocked{ true };
 
+		bool m_IsColoringTexture{ true };
+
+		const float m_RotateSpeed{ 25.f };
+
 		//Function that transforms the vertices from the mesh from World space to Screen space
-		void VertexTransformationFunction(const Mesh& mesh); //W1 Version
+		void VertexTransformationFunction(Mesh& mesh); //W1 Version
 
 		Vector2 CalcUVComponent(const float weight, const float depth, const size_t index, const Mesh& mesh) const;
 
-		void DrawTriangle(const size_t idx, const Mesh& mesh, const bool swapVertices);
+		void RenderTriangle(const size_t idx, const Mesh& mesh, const bool swapVertices);
 
-		void ClearBackGround() const noexcept
+		void ClearBackGround() const
 		{
 			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
 		}
 
-		void ClearDepthBuffer() 
+		void constexpr ClearDepthBuffer()
 		{
 			std::fill_n(m_pDepthBufferPixels, m_NrOfPixels, FLT_MAX);
 		}
 
-		std::vector<Vertex> m_Vertices_NDC{};
+		bool IsOutOfFrustrum(const Vertex_Out& vOUT) const;
+
+		//std::vector<Vertex> m_Vertices_NDC{};
 		std::vector<Vector2> m_Vertices_ScreenSpace{};
 
 		//define mesh
@@ -104,29 +116,21 @@ namespace dae
 		};*/
 
 		//define mesh
-		const std::vector<Mesh> m_Meshesworld
+		std::vector<Mesh> m_Meshes_World
 		{
 			Mesh
 			{
-				{
-					Vertex{{ -3.f, 3.f, -2.f },{0,0}},
-					Vertex{{ 0.f, 3.f, -2.f },{0.5f,0}},
-					Vertex{{ 3.f, 3.f, -2.f },{1,0}},
-					Vertex{{ -3.f, 0.f, -2.f },{0,0.5f}},
-					Vertex{{ 0.f, 0.f, -2.f },{0.5f,0.5f}},
-					Vertex{{ 3.f, 0.f, -2.f },{1,0.5f}},
-					Vertex{{ -3.f, -3.f, -2.f },{0,1}},
-					Vertex{{ 0.f, -3.f, -2.f },{0.5f,1}},
-					Vertex{{ 3.f, -3.f, -2.f },{1,1}},
-				},
-				{
-					3,0,4,1,5,2,
-					2,6,
-					6,3,7,4,8,5
-		
-				},
-				PrimitiveTopology::TriangleStrip
+				{},
+				{},
+				PrimitiveTopology::TriangleList
 			}
+			/*,
+			Mesh
+			{
+				{},
+				{},
+				PrimitiveTopology::TriangleList
+			}*/
 		};
 
 	};

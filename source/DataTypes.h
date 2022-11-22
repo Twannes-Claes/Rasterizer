@@ -7,20 +7,20 @@ namespace dae
 	struct Vertex
 	{
 		Vector3 position{};
-		//ColorRGB color{colors::White};
-		Vector2 uv{}; //W3
-		//Vector3 normal{}; //W4
-		//Vector3 tangent{}; //W4
-		//Vector3 viewDirection{}; //W4
+		ColorRGB color{colors::White};
+		Vector2 uv{};
+		Vector3 normal{};
+		Vector3 tangent{};
+		//Vector3 viewDirection{};
 	};
 
 	struct Vertex_Out
 	{
 		Vector4 position{};
-		//ColorRGB color{ colors::White };
+		ColorRGB color{ colors::White };
 		Vector2 uv{};
-		//Vector3 normal{};
-		//Vector3 tangent{};
+		Vector3 normal{};
+		Vector3 tangent{};
 		//Vector3 viewDirection{};
 	};
 
@@ -44,5 +44,11 @@ namespace dae
 
 		std::vector<Vertex_Out> vertices_out{};
 		Matrix worldMatrix{};
+
+		void RotateY(float angle)
+		{
+			worldMatrix = Matrix::CreateRotationY(angle * TO_RADIANS) * worldMatrix;
+		}
+
 	};
 }

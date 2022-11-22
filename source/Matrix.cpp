@@ -149,11 +149,17 @@ namespace dae {
 		return {};
 	}
 
-	Matrix Matrix::CreatePerspectiveFovLH(float fov, float aspect, float zn, float zf)
+	Matrix Matrix::CreatePerspectiveFovLH(const float fov, const float aspecRatio, const float nearPlane, const float farPlane)
 	{
-		//TODO W2
+		const float frustum{ farPlane - nearPlane };
 
-		return {};
+		return
+		{
+			{1 / (aspecRatio * fov), 0, 0,0},
+			{0, 1 / fov, 0, 0},
+			{0, 0, farPlane / frustum, 1},
+			{0, 0 , -(farPlane * nearPlane) / frustum, 0}
+		};
 	}
 
 	Vector3 Matrix::GetAxisX() const
