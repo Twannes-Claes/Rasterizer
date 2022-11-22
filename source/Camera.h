@@ -5,6 +5,7 @@
 
 #include "Math.h"
 #include "Timer.h"
+#include <algorithm>
 
 namespace dae
 {
@@ -29,6 +30,9 @@ namespace dae
 
 		float totalPitch{};
 		float totalYaw{};
+
+		const float minPitch{ -89.99f * TO_RADIANS };
+		const float maxPitch{ 89.99f * TO_RADIANS };
 
 		int speed{ 10 };
 
@@ -91,7 +95,7 @@ namespace dae
 			const uint32_t mouseState = SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
 			float moveSpeed{ speed * deltaTime };
-			float rotSpeed{ (speed * 1.5f * TO_RADIANS) * deltaTime };
+			float rotSpeed{ (speed * 3.f * TO_RADIANS) * deltaTime };
 
 			moveSpeed = (pKeyboardState[SDL_SCANCODE_LSHIFT] * (sprintSpeedMultiplier)*moveSpeed) + moveSpeed;
 
@@ -113,6 +117,7 @@ namespace dae
 			origin -= lrmb * up * (moveSpeed / 3) * float(mouseY);
 
 			totalPitch -= rmb * rotSpeed * mouseY;
+			totalPitch = std::clamp(totalPitch, minPitch, maxPitch);
 			totalYaw += lmb * rotSpeed * mouseX;
 			totalYaw += rmb * rotSpeed * mouseX;
 
